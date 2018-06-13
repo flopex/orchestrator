@@ -622,21 +622,24 @@ func formatEventCleanly(event BinlogEvent, length *int) string {
 // is MySQL-5.6 and in pseudo-gtid mode.
 // returns applyInstanceSpecialFiltering, applyOtherSpecialFiltering, err
 func special56To57filterProcessing(instance *Instance, other *Instance) (bool, bool, error) {
+	isFlavor57 := map[string]bool{"MySQL-5.7": true, "Percona-5.7": true}
+	isFlavor56 := map[string]bool{"MySQL-5.6": true, "Percona-5.6": true}
+
 	// be paranoid
 	if instance == nil || other == nil {
 		return false, false, fmt.Errorf("special56To57filterProcessing: instance or other is nil. Should not happen")
 	}
 
-	filterInstance := instance.FlavorNameAndMajorVersion() == "MySQL-5.7" && // 5.7 replica
-		other.FlavorNameAndMajorVersion() == "MySQL-5.6" // replicating under 5.6 master
+	filterInstance := isFlavor57[instance.FlavorNameAndMajorVersion()] && // 5.7 replica
+		isFlavor56[other.FlavorNameAndMajorVersion()] // replicating under 5.6 master
 
 	// The logic for other is a bit weird and may require us
 	// to check the instance's master.  To avoid this do some
 	// preliminary checks first to avoid the "master" access
 	// unless absolutely needed.
 	if instance.LogBinEnabled || // instance writes binlogs (not relay logs)
-		instance.FlavorNameAndMajorVersion() != "MySQL-5.7" || // instance NOT 5.7 replica
-		other.FlavorNameAndMajorVersion() != "MySQL-5.7" { // new master is NOT 5.7
+		!isFlavor57[instance.FlavorNameAndMajorVersion()] || // instance NOT 5.7 replica
+		!isFlavor57[other.FlavorNameAndMajorVersion()] { // new master is NOT 5.7
 		return filterInstance, false /* good exit status avoiding checking master */, nil
 	}
 
@@ -650,7 +653,7 @@ func special56To57filterProcessing(instance *Instance, other *Instance) (bool, b
 		return false, false, log.Errorf("special56To57filterProcessing: ReadInstance(%+v) fails: %+v", instance.MasterKey, err)
 	}
 
-	filterOther := master.FlavorNameAndMajorVersion() == "MySQL-5.6" // master(instance) == 5.6
+	filterOther := isFlavor56[master.FlavorNameAndMajorVersion()] // master(instance) == 5.6
 
 	return filterInstance, filterOther, nil
 }
