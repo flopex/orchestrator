@@ -477,11 +477,14 @@ func (this *Instance) descriptionTokens() (tokens []string) {
 			extraTokens = append(extraTokens, "GTID")
 		}
 		if this.UsingPseudoGTID {
-			extraTokens = append(extraTokens, "P-GTID")
+			extraTokens = append(extraTokens, "P-GTID-test")
 		}
 		if this.IsDowntimed {
 			extraTokens = append(extraTokens, "downtimed")
 		}
+    if this.IsCandidate {
+      extraTokens = append(extraTokens, string(this.PromotionRule))
+    }
 		tokens = append(tokens, strings.Join(extraTokens, ","))
 	}
 	return tokens
